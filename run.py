@@ -21,8 +21,8 @@ from utils.twitch_config import *
 # to help the CLI write unicode characters to the terminal
 sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 
-# use your own API Key, you can get it from https://openai.com/. I place my API Key in a separate file called config.py
 openai.api_key = api_key
+openai.api_base = "http://localhost:1234/v1"
 
 conversation = []
 # Create a dictionary to hold the message data
@@ -108,7 +108,7 @@ def openai_answer():
     prompt = getPrompt()
 
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="local-model",
         messages=prompt,
         max_tokens=128,
         temperature=1,
