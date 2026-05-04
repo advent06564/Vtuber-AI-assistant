@@ -23,7 +23,7 @@ from utils.twitch_config import *
 from utils.vts_link import start_vts_link, trigger_vts_expression
 from faster_whisper import WhisperModel
 
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
+# sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 
 LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY, LM_STUDIO_MODEL = load_lm_settings()
 apply_openai_module(openai, LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)

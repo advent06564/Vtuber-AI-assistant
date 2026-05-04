@@ -30,7 +30,7 @@ class VTSLink:
         
         try:
             # First, get available hotkeys to find the ID
-            response = await self.vts.request(self.vts.vts_request.requestHotkeys())
+            response = await self.vts.request(self.vts.vts_request.requestHotKeyList())
             hotkeys = response['data']['availableHotkeys']
             
             target_id = None
@@ -40,7 +40,7 @@ class VTSLink:
                     break
             
             if target_id:
-                await self.vts.request(self.vts.vts_request.requestTriggerHotkey(target_id))
+                await self.vts.request(self.vts.vts_request.requestTriggerHotKey(target_id))
                 # print(f"VTube Studio: Triggered hotkey '{hotkey_name}'")
             else:
                 # print(f"VTube Studio: Hotkey '{hotkey_name}' not found.")
