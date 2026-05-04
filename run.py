@@ -14,12 +14,13 @@ import threading
 import json
 import socket
 from emoji import demojize
-from lm_studio import apply_openai_module, assert_lm_studio_reachable, load_lm_settings, pick_owner_name
+from lm_studio import apply_openai_module, assert_lm_studio_reachable, load_lm_settings, pick_owner_name, get_available_models
 from utils.translate import *
 from utils.TTS import *
 from utils.subtitle import *
 from utils.promptMaker import *
 from utils.twitch_config import *
+from utils.vts_link import start_vts_link, trigger_vts_expression
 from faster_whisper import WhisperModel
 
 sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
@@ -27,6 +28,21 @@ sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY, LM_STUDIO_MODEL = load_lm_settings()
 apply_openai_module(openai, LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)
 assert_lm_studio_reachable(LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)
+
+# Fetch and list all available models
+available_models = get_available_models(LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)
+if available_models:
+    print("\n--- Available LM Studio Models ---")
+    for i, m in enumerate(available_models):
+        print(f"[{i}] {m}")
+    
+    choice = input(f"\nSelect a model index (default {LM_STUDIO_MODEL}): ")
+    if choice.isdigit() and int(choice) < len(available_models):
+        LM_STUDIO_MODEL = available_models[int(choice)]
+        print(f"Using model: {LM_STUDIO_MODEL}")
+    else:
+        print(f"Using default model: {LM_STUDIO_MODEL}")
+
 print(f'LLM backend: LM Studio at {LM_STUDIO_BASE_URL} (model: {LM_STUDIO_MODEL})')
 
 model_size = 'base'
@@ -147,6 +163,19 @@ def openai_answer():
     response = openai.ChatCompletion.create(model=LM_STUDIO_MODEL, messages=prompt, max_tokens=128, temperature=1, top_p=0.9)
     message = response['choices'][0]['message']['content']
     conversation.append({'role': 'assistant', 'content': message})
+    
+    # Detect mood and trigger VTube Studio expression
+    msg_lower = message.lower()
+    mood = None
+    if any(word in msg_lower for word in ["happy", "smile", "love", "haha", "yay", "fun"]): mood = "happy"
+    elif any(word in msg_lower for word in ["sad", "sorry", "cry", "unfortunate"]): mood = "sad"
+    elif any(word in msg_lower for word in ["angry", "mad", "stop", "don't"]): mood = "angry"
+    elif any(word in msg_lower for word in ["wow", "what", "really", "surprised"]): mood = "surprised"
+    elif any(word in msg_lower for word in ["blush", "cute", "shy", "thanks"]): mood = "blush"
+    
+    if mood:
+        trigger_vts_expression(vts_loop, mood)
+        
     translate_text(message)
 
 def yt_livechat(video_id):
@@ -218,6 +247,9 @@ def preparation():
         time.sleep(1)
 
 if __name__ == '__main__':
+    # Initialize VTube Studio link
+    vts_loop = start_vts_link()
+    
     try:
         mode = input('Mode (1-Mic, 2-Youtube Live, 3-Twitch Live): ')
         if mode == '1':

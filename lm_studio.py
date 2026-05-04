@@ -76,6 +76,23 @@ def assert_lm_studio_reachable(base_url: str, api_key: str) -> None:
         sys.exit(1)
 
 
+def get_available_models(base_url: str, api_key: str) -> list[str]:
+    """Fetch the list of loaded models from LM Studio."""
+    import json
+    url = base_url.rstrip("/") + "/models"
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return [m["id"] for m in data.get("data", [])]
+    except Exception:
+        return []
+
+
 def apply_openai_module(openai_module, base_url: str, api_key: str) -> None:
     """Point the legacy openai package at LM Studio only (never api.openai.com)."""
     openai_module.api_base = base_url
