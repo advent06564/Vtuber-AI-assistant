@@ -27,6 +27,51 @@ from faster_whisper import WhisperModel
 
 LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY, LM_STUDIO_MODEL = load_lm_settings()
 apply_openai_module(openai, LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)
+# For compatibility: set legacy env vars for older code
+os.environ['OPENAI_API_KEY'] = LM_STUDIO_API_KEY
+os.environ['OPENAI_API_BASE'] = LM_STUDIO_BASE_URL
+
+# If LM_STUDIO_API_KEY is empty, avoid instantiating the new OpenAI client which demands credentials.
+# Provide a lightweight HTTP helper that calls the LM Studio API directly and omits Authorization when empty.
+import urllib.request as _urllib_request
+import urllib.error as _urllib_error
+
+def _lm_chat_completion(model, messages, max_tokens=128, temperature=1, top_p=0.9):
+    url = LM_STUDIO_BASE_URL.rstrip('/') + '/chat/completions'
+    body = {
+        'model': model,
+        'messages': messages,
+        'max_tokens': max_tokens,
+        'temperature': temperature,
+        'top_p': top_p,
+    }
+    data = json.dumps(body).encode('utf-8')
+    headers = {'Content-Type': 'application/json'}
+    if LM_STUDIO_API_KEY:
+        headers['Authorization'] = f'Bearer {LM_STUDIO_API_KEY}'
+    req = _urllib_request.Request(url, data=data, headers=headers, method='POST')
+    try:
+        with _urllib_request.urlopen(req, timeout=30) as resp:
+            resp_data = resp.read().decode('utf-8')
+            return json.loads(resp_data)
+    except _urllib_error.HTTPError as e:
+        # Try to include body for debugging
+        try:
+            err = e.read().decode('utf-8')
+        except Exception:
+            err = str(e)
+        raise RuntimeError(f'HTTPError {e.code}: {err}')
+    except Exception as e:
+        raise
+
+# Only create new OpenAI client when an API key is provided — otherwise we'll use the helper above
+client = None
+if LM_STUDIO_API_KEY:
+    try:
+        client = openai.OpenAI()
+    except Exception:
+        client = None
+
 assert_lm_studio_reachable(LM_STUDIO_BASE_URL, LM_STUDIO_API_KEY)
 
 # Fetch and list all available models
@@ -160,8 +205,27 @@ def openai_answer():
     with open('conversation.json', 'w', encoding='utf-8') as f:
         json.dump(history, f, indent=4)
     prompt = getPrompt()
-    response = openai.ChatCompletion.create(model=LM_STUDIO_MODEL, messages=prompt, max_tokens=128, temperature=1, top_p=0.9)
-    message = response['choices'][0]['message']['content']
+    try:
+        if client is not None:
+            response = client.chat.completions.create(model=LM_STUDIO_MODEL, messages=prompt, max_tokens=128, temperature=1, top_p=0.9)
+            # Extract message content (support both mapping and attribute access)
+            try:
+                message = response['choices'][0]['message']['content']
+            except Exception:
+                try:
+                    message = response.choices[0].message.content
+                except Exception:
+                    message = str(response)
+        else:
+            # Use direct HTTP helper to call LM Studio and omit Authorization if no key configured
+            resp_json = _lm_chat_completion(LM_STUDIO_MODEL, prompt, max_tokens=128, temperature=1, top_p=0.9)
+            try:
+                message = resp_json['choices'][0]['message']['content']
+            except Exception:
+                message = json.dumps(resp_json)
+    except Exception as e:
+        print(f'OpenAI request failed: {e}')
+        message = 'Sorry, I could not get a response right now.'
     conversation.append({'role': 'assistant', 'content': message})
     
     # Detect mood and trigger VTube Studio expression
