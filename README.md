@@ -1,5 +1,7 @@
 # Vtuber AI Assistant
 
+[![CI](https://github.com/advent06564/Vtuber-AI-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/advent06564/Vtuber-AI-assistant/actions/workflows/ci.yml)
+
 > *A modular, extensible framework for building an AI-powered VTuber assistant with a custom front end.*
 
 A hybrid assistant framework that lets you pair a custom VTuber avatar front end with any AI model of your choice — cloud API, local LLM, or custom endpoint. Designed to be modular: swap models, add capabilities, and customize the personality without touching the core framework.
